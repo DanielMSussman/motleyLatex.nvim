@@ -26,21 +26,35 @@ M.hex_to_rgb = function(hex)
 end
 
 
--- Get all highlight groups and their associated colors
+-- Get all highlight groups and their associated colors...attributes are going to be things like italic, bold, underlined, etc
 M.get_highlight_group_colors = function()
+    local hl_group_attr_map = {}
     local hl_group_color_map = {}
     local hl_info = vim.fn.execute("highlight")
     for line in hl_info:gmatch("[^\r\n]+") do
-
-
-
         local hl_group = line:match("%S+")
-        local color_match = line:match("guifg=#(%x%x%x%x%x%x)")
-        if color_match then
-            hl_group_color_map[hl_group] = color_match
+        local fg_match = line:match("guifg=#(%x%x%x%x%x%x)")
+        local bg_match = line:match("guibg=#(%x%x%x%x%x%x)")
+        local attr_match = line:match("gui=([a-z,]+)")
+
+        hl_group_attr_map[hl_group] = {}
+
+        if fg_match then
+            hl_group_attr_map[hl_group].fg = fg_match
+        end
+
+        if bg_match then
+            hl_group_attr_map[hl_group].bg = bg_match
+        end
+
+        if attr_match then
+            hl_group_attr_map[hl_group].attr = {}
+            for attr in attr_match:gmatch("([^,]+)") do
+                table.insert(hl_group_attr_map[hl_group].attr, attr)
+            end
         end
     end
-    return hl_group_color_map
+    return hl_group_attr_map
 end
 
 -- A bunch of TeX characters need to be escaped
@@ -49,21 +63,34 @@ M.escape_latex_chars = function(str)
 end
 
 -- generate the \textcolor[HTML]{hexCode} stuff to get a connected block of tokens with the given color
-M.generate_token_latex = function(token, hl_group, hl_group_color_map)
-    if not hl_group then
-        return "\\texttt{" .. M.escape_latex_chars(token) .. "}"
-    end
-
-    local renamedHlGroup = hl_group
-    local color_hex = hl_group_color_map[renamedHlGroup]
-
-    if not color_hex then
-        return "\\texttt{" .. M.escape_latex_chars(token) .. "}"
-    end
-
-    local color_command = string.format("\\textcolor[HTML]{%s}", color_hex)
+M.generate_token_latex = function(token, hl_group, hl_group_attr_map)
     local escaped_token = M.escape_latex_chars(token)
-    return string.format("%s{\\texttt{%s}}", color_command, escaped_token)
+    local attributes = hl_group_attr_map[hl_group]
+
+    if not hl_group then
+        return "\\texttt{" .. escaped_token .. "}"
+    end
+
+    local tex_output = "\\texttt{"..escaped_token .."}"
+
+    if attributes.attr then
+        for _, attr in ipairs(attributes.attr) do
+            if attr == "bold" then
+                tex_output = "\\textbf{" .. tex_output .. "}"
+            elseif attr == "italic" then
+                tex_output = "\\textit{" .. tex_output .. "}"
+            elseif attr == "underline" then
+                tex_output = "\\underbar{" .. tex_output .. "}"
+            end
+        end
+    end
+
+    if attributes.fg then
+        tex_output = string.format("\\textcolor[HTML]{%s}{%s}", attributes.fg, tex_output)
+    end
+
+    return tex_output
+    -- return tex_output .. escaped_token .. "}"
 end
 
 --use inspect_pos ("Inspect") to figure out what highlight group link we should use; process a given line.
