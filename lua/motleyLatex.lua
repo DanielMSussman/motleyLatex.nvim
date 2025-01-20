@@ -7,28 +7,14 @@ M.config = {
     tcolorbox_opts = {
     colframe = "black!40",
     boxrule = "0.5pt",
-    left = "5mm",
-    top = "2mm",
-    bottom = "2mm",
+    width = "0.9\\textwidth",
   },
 }
 
 -- merge the config, and define a user command
-M.setup = function(args)
-    if opts then
-        if opts.tcolorbox_opts then
-            for k, v in pairs(opts.tcolorbox_opts) do
-                M.config.tcolorbox_opts[k] = v
-            end
-        end
-    end
+M.setup = function(opts)
+    M.config = vim.tbl_deep_extend("force", M.config, opts or {})
     module.config = M.config
-
-    -- vim.api.nvim_create_user_command("MotleyLatexTesting",
-    --     function()
-    --         require("motleyLatex").pluginTesting()
-    --     end,{desc = 'test'}
-    -- )
 
     vim.api.nvim_create_user_command('MotleyLatex',
         function(opts)
@@ -73,6 +59,13 @@ M.setup = function(args)
             end
         end,
         { range = true, nargs = '?', complete = 'file', desc = 'save a tcolorbox corresponding to the current color scheme. Acts on whole buffer or visual selection. optional argument specifies the filename that will be saved' })
+
+    -- vim.api.nvim_create_user_command("MotleyLatexTesting",
+    --     function()
+    --         require("motleyLatex").pluginTesting()
+    --     end,{desc = 'test'}
+    -- )
+
 end
 
 M.pluginTesting = function()
