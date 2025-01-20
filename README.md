@@ -22,8 +22,9 @@ The plugin consumes the contents and visual style of the current code buffer (or
     `DanielMSussman/motleyLatex.nvim`,
     dependencies = {`nvim-treesitter/nvim-treesitter`,},
     config = function()
+        -- use tcolorbox_opts to overwrite any of the default options, or add new ones
         require("motleyLatex").setup({
-                    tcolorbox_opts = { --overwrite any default options, or add new ones
+                    tcolorbox_opts = {
                         colframe = "black!40",
                         boxrule = "0.5pt", 
                         width = "0.9\\textwidth",

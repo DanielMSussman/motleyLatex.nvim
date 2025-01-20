@@ -60,11 +60,11 @@ M.setup = function(opts)
         end,
         { range = true, nargs = '?', complete = 'file', desc = 'save a tcolorbox corresponding to the current color scheme. Acts on whole buffer or visual selection. optional argument specifies the filename that will be saved' })
 
-    -- vim.api.nvim_create_user_command("MotleyLatexTesting",
-    --     function()
-    --         require("motleyLatex").pluginTesting()
-    --     end,{desc = 'test'}
-    -- )
+    vim.api.nvim_create_user_command("MotleyLatexTesting",
+        function()
+            require("motleyLatex").pluginTesting()
+        end,{desc = 'test'}
+    )
 
 end
 

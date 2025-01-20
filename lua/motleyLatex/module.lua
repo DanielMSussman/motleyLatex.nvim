@@ -59,7 +59,14 @@ end
 
 -- A bunch of TeX characters need to be escaped
 M.escape_latex_chars = function(str)
-    return string.gsub(str, "[\\#$%&_^{}]", function(c) return "\\" .. c end)
+    local replacements = {
+        ["\\"] = "\\textbackslash",
+        ["^"] = "\\textasciicircum",
+        ["~"] = "\\textasciitilde",
+    }
+    str = string.gsub(str, "[\\^~]", function(c) return replacements[c] or c end)
+    str = string.gsub(str, "[#$%&_{}]", function(c) return "\\" .. c end)
+    return str
 end
 
 -- generate the \textcolor[HTML]{hexCode} stuff to get a connected block of tokens with the given color
@@ -98,6 +105,13 @@ M.generate_line_latex = function(line, line_num, buf_num, hl_group_color_map)
     local latex_output = ""
     local col = 0
     local line_length = #line
+    --we want to capture leading whitespace and \hspace* it, to preserve indentation
+    local whitespace = line:sub(col+1,next_col):match("^%s*")
+    latex_output = latex_output .. "\\hspace*{" .. tostring(#whitespace) .. "ex}"
+    if #whitespace >0 then
+        col = #whitespace
+    end
+
     while col < line_length do
         local inspect_result = vim.inspect_pos(buf_num, line_num - 1, col, {})
         --skip over whitespace, or things with no highlighting, and assign it to a raw \texttt{} string
@@ -114,20 +128,36 @@ M.generate_line_latex = function(line, line_num, buf_num, hl_group_color_map)
             latex_output = latex_output .. M.generate_token_latex(line:sub(col + 1, next_col), nil, hl_group_color_map)
             col = next_col
         else
+            local irLen = #inspect_result.treesitter
             -- Get the first highlight group, and find all connected tokens of the same highlight group
-            local hl_group = inspect_result.treesitter[1].hl_group_link
+            local hl_group = inspect_result.treesitter[irLen].hl_group_link
+            --TODO: replace this jank with an actual inspection of metadata table and priority
+            if hl_group == "@spell" then
+                hl_group = inspect_result.treesitter[1].hl_group_link
+            end
             local end_col = col + 1
             while end_col < line_length do
                 local next_inspect_result = vim.inspect_pos(buf_num, line_num - 1, end_col, {})
-                if not next_inspect_result or not next_inspect_result.treesitter or #next_inspect_result.treesitter == 0 or next_inspect_result.treesitter[1].hl_group_link ~= hl_group then
+                local irLen2 = #next_inspect_result.treesitter
+                if irLen2 == 0 then
                     break
                 end
+                local hlNext = next_inspect_result.treesitter[irLen2]
+                if hlNext == "@spell" then
+                    hlNext = next_inspect_result.treesitter[1]
+                end
+                if hlNext ~= hl_group then
+                    break
+                end
+
                 end_col = end_col + 1
             end
 
             -- Generate LaTeX for the token
             local token = line:sub(col + 1, end_col)
             latex_output = latex_output .. M.generate_token_latex(token, hl_group, hl_group_color_map)
+        -- print(vim.inspect({hl_group,token}))
+        --     print(vim.inspect(hl_group_color_map))
 
             col = end_col
         end
@@ -145,14 +175,14 @@ M.generateLatexCodeblock = function(start_line,end_line)
     local bg_color = M.get_background_color()
     local r, g, b = M.hex_to_rgb(bg_color)
 
-    local tcolorbox_opts_str = "colback={rgb,255:red," .. r * 255 .. ";green," .. g * 255 .. ";blue," .. b * 255 .. "},"
+    local tcolorbox_opts_str = "\ncolback={rgb,255:red," .. r * 255 .. ";green," .. g * 255 .. ";blue," .. b * 255 .. "},\n"
     for k, v in pairs(M.config.tcolorbox_opts) do
         if type(v) == "boolean" then
             if v then -- Only add the option if it's true
                 tcolorbox_opts_str = tcolorbox_opts_str .. k .. ","
             end
         elseif type(v) == "string" then
-            tcolorbox_opts_str = tcolorbox_opts_str .. string.format("%s=%s,", k, v)
+            tcolorbox_opts_str = tcolorbox_opts_str .. string.format("%s=%s,\n", k, v)
         end
     end
 
