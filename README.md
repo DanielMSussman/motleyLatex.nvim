@@ -2,6 +2,10 @@
 
 A Neovim that translates code in a buffer to a LaTeX `tcolorbox` environment, preserving preserving syntax highlighting from Neovim (using Tree-sitter) and your current color scheme
 
+
+https://github.com/user-attachments/assets/b0da6e8b-ad13-449b-8c50-c020b3ed6452
+
+
 ## Motivation
 
 As a Neovim user, you've (probably) meticulously crafted the look of your coding environment, complete with a color scheme that is aesthetically pleasing and enhances readability. When it comes to showing code in LaTeX documents, though, you're often forced to compromise.
