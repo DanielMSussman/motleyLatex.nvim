@@ -64,7 +64,7 @@ M.setup = function(opts)
     --     function()
     --         require("motleyLatex").pluginTesting()
     --     end,{desc = 'test'}
-    )
+    -- )
 
 end
 
