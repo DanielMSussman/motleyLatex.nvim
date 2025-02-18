@@ -5,6 +5,8 @@ local M = {}
 
 M.config = {
     tcolorbox_opts = {
+    top= "0.5pt",
+    bottom= "0.5pt",
     colframe = "black!40",
     boxrule = "0.5pt",
     width = "0.9\\textwidth",

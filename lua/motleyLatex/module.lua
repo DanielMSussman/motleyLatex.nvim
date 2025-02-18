@@ -70,7 +70,7 @@ M.escape_latex_chars = function(str)
 end
 
 -- generate the \textcolor[HTML]{hexCode} stuff to get a connected block of tokens with the given color
-M.generate_token_latex = function(token, hl_group, hl_group_attr_map)
+M.generateTokenLatex = function(token, hl_group, hl_group_attr_map)
     local escaped_token = M.escape_latex_chars(token)
     local attributes = hl_group_attr_map[hl_group]
 
@@ -101,20 +101,19 @@ M.generate_token_latex = function(token, hl_group, hl_group_attr_map)
 end
 
 --use inspect_pos ("Inspect") to figure out what highlight group link we should use; process a given line.
-M.generate_line_latex = function(line, line_num, buf_num, hl_group_color_map)
+M.generateLineLatex = function(line, line_num, buf_num, hl_group_attr_map)
     local latex_output = ""
     local col = 0
     local line_length = #line
-    --we want to capture leading whitespace and \hspace* it, to preserve indentation
-    local whitespace = line:sub(col+1,next_col):match("^%s*")
+
+    -- Handle leading whitespace
+    local whitespace = line:sub(col + 1, line_length):match("^%s*")
     latex_output = latex_output .. "\\hspace*{" .. tostring(#whitespace) .. "ex}"
-    if #whitespace >0 then
-        col = #whitespace
-    end
+    col = col + #whitespace
 
     while col < line_length do
         local inspect_result = vim.inspect_pos(buf_num, line_num - 1, col, {})
-        --skip over whitespace, or things with no highlighting, and assign it to a raw \texttt{} string
+
         if not inspect_result or not inspect_result.treesitter or #inspect_result.treesitter == 0 then
             -- No highlights or error, find the next highlighted position or end of line
             local next_col = col + 1
@@ -125,45 +124,72 @@ M.generate_line_latex = function(line, line_num, buf_num, hl_group_color_map)
                 end
                 next_col = next_col + 1
             end
-            latex_output = latex_output .. M.generate_token_latex(line:sub(col + 1, next_col), nil, hl_group_color_map)
+             local token = line:sub(col + 1, next_col)
+            latex_output = latex_output .. M.generateTokenLatex(token, nil, hl_group_attr_map)
+
             col = next_col
         else
-            local irLen = #inspect_result.treesitter
-            -- Get the first highlight group, and find all connected tokens of the same highlight group
-            local hl_group = inspect_result.treesitter[irLen].hl_group_link
-            --TODO: replace this jank with an actual inspection of metadata table and priority
-            if hl_group == "@spell" then
-                hl_group = inspect_result.treesitter[1].hl_group_link
-            end
+             local irLen = #inspect_result.treesitter
+             local hl_group = inspect_result.treesitter[irLen].hl_group_link
+             if hl_group == "@spell" then
+                 hl_group = inspect_result.treesitter[1].hl_group_link
+             end
+
+            -- Find the end of the continuous run of the SAME highlight group AND attributes
             local end_col = col + 1
+            local current_attributes = hl_group_attr_map[hl_group]
+
             while end_col < line_length do
                 local next_inspect_result = vim.inspect_pos(buf_num, line_num - 1, end_col, {})
-                local irLen2 = #next_inspect_result.treesitter
-                if irLen2 == 0 then
-                    break
+                 if not next_inspect_result or not next_inspect_result.treesitter or #next_inspect_result.treesitter == 0 then
+                    break -- No more highlighting
                 end
-                local hlNext = next_inspect_result.treesitter[irLen2]
-                if hlNext == "@spell" then
-                    hlNext = next_inspect_result.treesitter[1]
+                local next_hl_group = next_inspect_result.treesitter[#next_inspect_result.treesitter].hl_group_link
+                if next_hl_group == "@spell" then  --handle spellcheck weirdness
+                   next_hl_group = next_inspect_result.treesitter[1].hl_group_link
                 end
-                if hlNext ~= hl_group then
+                local next_attributes = hl_group_attr_map[next_hl_group]
+
+                -- Check if BOTH highlight group AND attributes are the same
+                if next_hl_group ~= hl_group or not next_attributes or not M.compareAttributes(current_attributes, next_attributes) then
                     break
                 end
 
                 end_col = end_col + 1
             end
 
-            -- Generate LaTeX for the token
+            -- Generate LaTeX for the ENTIRE token
             local token = line:sub(col + 1, end_col)
-            latex_output = latex_output .. M.generate_token_latex(token, hl_group, hl_group_color_map)
-        -- print(vim.inspect({hl_group,token}))
-        --     print(vim.inspect(hl_group_color_map))
-
+            latex_output = latex_output .. M.generateTokenLatex(token, hl_group, hl_group_attr_map)
             col = end_col
         end
     end
 
     return latex_output .. "\\newline\n"
+end
+
+M.compareAttributes = function(attr1, attr2)
+    if attr1 == nil and attr2 == nil then return true end --both nil
+    if attr1 == nil or attr2 == nil then return false end --one is nil, the other isn't
+    if attr1.fg ~= attr2.fg or attr1.bg ~= attr2.bg then
+        return false
+    end
+
+    -- Compare 'attr' tables (bold, italic, underline)
+    if attr1.attr == nil and attr2.attr == nil then return true end
+    if attr1.attr == nil or attr2.attr == nil then return false end
+    if #attr1.attr ~= #attr2.attr then
+        return false
+    end
+    table.sort(attr1.attr)  -- Sort to ensure order doesn't matter
+    table.sort(attr2.attr)
+    for i = 1, #attr1.attr do
+        if attr1.attr[i] ~= attr2.attr[i] then
+            return false
+        end
+    end
+
+    return true
 end
 
 --given a start and end line, generate a tcolorbox with the specified options and all color highlighting.
@@ -196,7 +222,11 @@ M.generateLatexCodeblock = function(start_line,end_line)
 
 
     for line_num = start_line, end_line do
-        latex_output = latex_output .. M.generate_line_latex(lines[line_num - start_line + 1], line_num, buf_num, hl_group_color_map)
+        if line_num == end_line then
+            latex_output = latex_output .. M.generateLineLatex(lines[line_num - start_line + 1], line_num, buf_num, hl_group_color_map):gsub("\\newline\n$","")
+        else
+            latex_output = latex_output .. M.generateLineLatex(lines[line_num - start_line + 1], line_num, buf_num, hl_group_color_map)
+        end
     end
 
     latex_output = latex_output .. "\\end{tcolorbox}\n"
