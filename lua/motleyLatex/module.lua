@@ -75,10 +75,10 @@ M.generateTokenLatex = function(token, hl_group, hl_group_attr_map)
     local attributes = hl_group_attr_map[hl_group]
 
     if not hl_group then
-        return "\\texttt{" .. escaped_token .. "}"
+        return "\\ttfamily{" .. escaped_token .. "}"
     end
 
-    local tex_output = "\\texttt{"..escaped_token .."}"
+    local tex_output = "\\ttfamily{"..escaped_token .."}"
 
     if attributes.attr then
         for _, attr in ipairs(attributes.attr) do
