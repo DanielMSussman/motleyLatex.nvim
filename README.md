@@ -1,6 +1,6 @@
  # motleyLatex
 
-A Neovim that translates code in a buffer to a LaTeX `tcolorbox` environment, preserving preserving syntax highlighting from Neovim (using Tree-sitter) and your current color scheme
+A Neovim plugin that translates code in a buffer to a LaTeX `tcolorbox` environment, preserving preserving syntax highlighting from Neovim (using Tree-sitter) and your current color scheme
 
 
 https://github.com/user-attachments/assets/b0da6e8b-ad13-449b-8c50-c020b3ed6452
@@ -56,7 +56,7 @@ The plugin consumes the contents and visual style of the current code buffer (or
 
 1. Open code in Neovim
 2. Enable tree-sitter highlighting if it isn't already (`:TSBufEnable`)
-3. Run the plugin command `:MotleyLatex [optionalOutputFilename]`. This operates on the whole buffer or on the current visual selection. If no filename is provided, the name of the code file is used as the base filename.
+3. Run the plugin command `:MotleyLatex [optionalOutputFilename] ["optional title"]`. This operates on the whole buffer or on the current visual selection. If no filename is provided, the name of the code file is used as the base filename. If the second optional argument (enclosed in quotes) is provided, it is used for the tcolorbox title.
 4. Include the generated `filename.tex` file in your LaTeX document:
 
 ```
