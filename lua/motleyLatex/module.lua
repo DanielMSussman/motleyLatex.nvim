@@ -60,7 +60,8 @@ end
 -- A bunch of TeX characters need to be escaped
 M.escape_latex_chars = function(str)
     local replacements = {
-        ["\\"] = "\\textbackslash",
+        ["\\"] = "\\textbackslash ",
+        ["%"] = "\\%",
         ["^"] = "\\textasciicircum",
         ["~"] = "\\textasciitilde",
     }
