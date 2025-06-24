@@ -80,8 +80,8 @@ Calling the setup function as in the Installation example above allows you to ov
 The plugin uses `vim.inspect_pos()` to get highlight information directly from Neovim, (hopefully) ensuring accurate color and style rendering. Those colors and style attributes come from the `guifg`, `guibg`, and `gui` attributes of highlight groups.
 
 
-### Thanks
+### Thanks?
 
 If, for some unexpected reason, you found this helpful and would like to offer support:
 
-[![Buy Me a Coffee](https://img.buymeacoffee.com/button-api/?text=Buy%20me%20a%20coffee&emoji=&slug=danielmsussman&button_colour=FFDD00&font_colour=000000&font_family=Poppins&outline_colour=000000&coffee_colour=ffffff)](https://www.buymeacoffee.com/danielmsussman)
+[![Buy Me a Coffee](https://cdn.buymeacoffee.com/buttons/v2/default-blue.png)](https://www.buymeacoffee.com/danielmsussman)
