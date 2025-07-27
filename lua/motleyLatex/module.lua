@@ -194,9 +194,9 @@ M.compareAttributes = function(attr1, attr2)
 end
 
 --given a start and end line, generate a tcolorbox with the specified options and all color highlighting.
-M.generateLatexCodeblock = function(start_line,end_line)
+M.generateLatexCodeblock = function(startLine,endLine)
     local buf_num = vim.api.nvim_get_current_buf()
-    local lines = vim.api.nvim_buf_get_lines(buf_num, start_line - 1, end_line, false)
+    local lines = vim.api.nvim_buf_get_lines(buf_num, startLine - 1, endLine, false)
 
     local hl_group_color_map = M.get_highlight_group_colors()
     local bg_color = M.get_background_color()
@@ -222,11 +222,11 @@ M.generateLatexCodeblock = function(start_line,end_line)
 ]], tcolorbox_opts_str)
 
 
-    for line_num = start_line, end_line do
-        if line_num == end_line then
-            latex_output = latex_output .. M.generateLineLatex(lines[line_num - start_line + 1], line_num, buf_num, hl_group_color_map):gsub("\\newline\n$","")
+    for line_num = startLine, endLine do
+        if line_num == endLine then
+            latex_output = latex_output .. M.generateLineLatex(lines[line_num - startLine + 1], line_num, buf_num, hl_group_color_map):gsub("\\newline\n$","")
         else
-            latex_output = latex_output .. M.generateLineLatex(lines[line_num - start_line + 1], line_num, buf_num, hl_group_color_map)
+            latex_output = latex_output .. M.generateLineLatex(lines[line_num - startLine + 1], line_num, buf_num, hl_group_color_map)
         end
     end
 
@@ -239,6 +239,84 @@ M.testFunction = function(greeting)
     -- local curline  = vim.api.nvim_win_get_cursor(0)[1]
     -- texOutput = M.generateLatexCodeblock(curline,curline+2)
     -- print(vim.inspect(texOutput))
+end
+
+M.generateAllMotley = function(opts)
+    local args = vim.split(opts.args, "%s+")
+    local commentString = nil
+    local colorSchemes = nil
+     if #args == 1 and args[1] == "" then
+        commentString = "##"
+        colorSchemes = { "kanagawa-lotus" }
+    elseif #args < 2 then
+        print("Error: Not enough arguments.")
+        print('Usage: :GenerateAllMotley "<commentString>" <scheme1> <scheme2> ...')
+        return
+    else
+        commentString = table.remove(args, 1)
+        colorSchemes = args
+    end
+
+    local originalScheme = vim.g.colors_name
+    vim.notify("Original colorscheme: " .. originalScheme)
+
+    local marker_pattern = "^" .. vim.pesc(commentString) .. "%s+(.*)%.tex$"
+
+    local blocks = {}
+    local bufferLines = vim.api.nvim_buf_get_lines(0, 0, -1, false)
+    local currentBlock = nil
+
+    for i, line in ipairs(bufferLines) do
+        local filename = line:match(marker_pattern)
+        if filename then
+            if currentBlock then
+                local endLine = i - 1
+                while endLine >= currentBlock.startLine and vim.trim(bufferLines[endLine]) == "" do
+                    endLine = endLine - 1
+                end
+                currentBlock.endLine = endLine
+            end
+            currentBlock = {
+                filename = filename,
+                startLine = i + 1,
+            }
+            table.insert(blocks, currentBlock)
+        end
+    end
+
+    if currentBlock then
+        local endLine = #bufferLines
+        while endLine >= currentBlock.startLine and vim.trim(bufferLines[endLine]) == "" do
+            endLine = endLine -1
+        end
+        currentBlock.endLine = endLine
+    end
+
+
+    if #blocks == 0 then
+        vim.notify("No blocks matching '" .. commentString .. " filename.tex' format found.")
+        return
+    end
+
+    for _, scheme in ipairs(colorSchemes) do
+        vim.notify("Applying colorscheme: " .. scheme)
+        vim.cmd("colorscheme " .. scheme)
+        vim.cmd("redraw")
+        vim.wait(50)
+
+        for _, block in ipairs(blocks) do
+            if block.startLine <= block.endLine then
+                vim.notify("Generating " .. block.filename .. ".tex ...")
+                local cmd = string.format(":%d,%d MotleyLatex %s", block.startLine, block.endLine, block.filename)
+                print(cmd)
+                vim.cmd(cmd)
+            end
+        end
+    end
+
+    vim.notify("Automation complete. Restoring original colorscheme.")
+    vim.cmd("colorscheme " .. originalScheme)
+    vim.cmd("redraw")
 end
 
 return M

@@ -21,73 +21,64 @@ M.setup = function(opts)
     vim.api.nvim_create_user_command('MotleyLatex',
         function(opts)
             local module = require("motleyLatex.module")
-            local start_line, end_line
 
-            if opts.range == 0 then -- No range given, use entire buffer
-                start_line = 1
-                end_line = vim.api.nvim_buf_line_count(0)
-            else -- Visual selection or range given
-                local ok, res = pcall(function()
-                    return vim.api.nvim_buf_get_mark(0, "<")
-                end)
-                if not ok then
-                    print("Error: Invalid visual selection")
-                    return
-                end
-                start_line = res[1]
-                end_line = vim.api.nvim_buf_get_mark(0, ">")[1]
-            end
+            local startLine = opts.line1
+            local endLine = opts.line2
 
-            -- argument parsing
-            local args = {}
-            start,b,c,quotedString = string.find(opts.args, "([\"'])(.-)%1")
-            if start then
-                arg = string.sub(opts.args,1,start-2)
-                table.insert(args, arg)-- Match anything that's not a quote, and quoted strings.
-                table.insert(args,quotedString)
-            else
-                if opts.args and opts.args ~= "" then
-                    table.insert(args,opts.args)
-                end
-            end
+            -- Argument parsing for filename and title
+            local args = vim.fn.split(opts.args, [[\s+]])
+            local filenameArg = args[1]
+            local titleArg = args[2]
 
             -- Determine output file name
-            local output_file
-            if args[1] then
-                -- Use the provided argument as the output file basename
-                output_file = args[1] .. '.tex'
+            local outputFile
+            if filenameArg and filenameArg ~= "" then
+                outputFile = filenameArg .. '.tex'
             else
-                -- Use the current file's name as the default
-                output_file = vim.fn.expand('%:p:r') .. '.tex'
+                outputFile = vim.fn.expand('%:p:r') .. '.tex'
             end
 
-            if args[2] then 
-                module.config.tcolorbox_opts.title = args[2]
+            -- Pass title to the module config if it exists
+            if titleArg then
+                module.config.tcolorbox_opts.title = titleArg
             else
-                module.config.tcolorbox_opts.title = ""
+                -- Clear previous title if none is provided this time
+                module.config.tcolorbox_opts.title = nil
             end
 
-            local latex_code = module.generateLatexCodeblock(start_line, end_line)
-
+            -- Generate the LaTeX code
+            local latex_code = module.generateLatexCodeblock(startLine, endLine)
 
             -- Write the LaTeX code to the output file
-            local file = io.open(output_file, "w")
+            local file = io.open(outputFile, "w")
             if file then
                 file:write(latex_code)
                 file:close()
-                print("LaTeX code written to " .. output_file)
+                vim.notify("LaTeX code written to " .. outputFile)
             else
-                print("Error: Could not write to file " .. output_file)
+                vim.notify("Error: Could not write to file " .. outputFile, vim.log.levels.ERROR)
             end
         end,
-        { range = true, nargs = '*', complete = 'file', desc = 'save a tcolorbox corresponding to the current color scheme. Acts on whole buffer or visual selection. optional argument specifies the filename that will be saved' })
+    {
+        range = true, -- Let Neovim handle parsing the range
+        nargs = '*',
+        complete = 'file',
+        desc = 'Save a tcolorbox from the current buffer or selection.'
+    })
 
     -- vim.api.nvim_create_user_command("MotleyLatexTesting",
     --     function()
     --         require("motleyLatex").pluginTesting()
     --     end,{desc = 'test'}
     -- )
-
+    vim.api.nvim_create_user_command('GenerateAllMotley',
+        function(opts)
+            local module = require("motleyLatex.module")
+            module.generateAllMotley(opts)
+        end,
+        { nargs = "*", complete = "color",
+            desc = "Generate motleyLatex files for every block in the current file that starts with a given comment string.", }
+    )
 end
 
 M.pluginTesting = function()
