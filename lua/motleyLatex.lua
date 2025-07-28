@@ -54,7 +54,7 @@ M.setup = function(opts)
             if file then
                 file:write(latex_code)
                 file:close()
-                vim.notify("LaTeX code written to " .. outputFile)
+                -- vim.notify("LaTeX code written to " .. outputFile)
             else
                 vim.notify("Error: Could not write to file " .. outputFile, vim.log.levels.ERROR)
             end

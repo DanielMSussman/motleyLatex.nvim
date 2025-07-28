@@ -21,37 +21,17 @@ M.hex_to_rgb = function(hex)
     local b = tonumber(hex:sub(5, 6), 16) / 255
     return r, g, b
 end
+M.integer_to_rgb = function(c)
+  local r = bit.band(bit.rshift(c, 16), 0xFF) / 255
+  local g = bit.band(bit.rshift(c, 8), 0xFF) / 255
+  local b = bit.band(c, 0xFF) / 255
+  return r, g, b
+end
 
 
 -- Get all highlight groups and their associated colors...attributes are going to be things like italic, bold, underlined, etc
 M.get_highlight_group_colors = function()
-    local hl_group_attr_map = {}
-    local hl_group_color_map = {}
-    local hl_info = vim.fn.execute("highlight")
-    for line in hl_info:gmatch("[^\r\n]+") do
-        local hl_group = line:match("%S+")
-        local fg_match = line:match("guifg=#(%x%x%x%x%x%x)")
-        local bg_match = line:match("guibg=#(%x%x%x%x%x%x)")
-        local attr_match = line:match("gui=([a-z,]+)")
-
-        hl_group_attr_map[hl_group] = {}
-
-        if fg_match then
-            hl_group_attr_map[hl_group].fg = fg_match
-        end
-
-        if bg_match then
-            hl_group_attr_map[hl_group].bg = bg_match
-        end
-
-        if attr_match then
-            hl_group_attr_map[hl_group].attr = {}
-            for attr in attr_match:gmatch("([^,]+)") do
-                table.insert(hl_group_attr_map[hl_group].attr, attr)
-            end
-        end
-    end
-    return hl_group_attr_map
+    return vim.api.nvim_get_hl(0, {})
 end
 
 -- A bunch of TeX characters need to be escaped
@@ -78,34 +58,33 @@ end
 
 
 -- generate the \textcolor[HTML]{hexCode} stuff to get a connected block of tokens with the given color
-M.generateTokenLatex = function(token, hl_group, hl_group_attr_map)
+M.generateTokenLatex = function(token, hl_group, hl_group_map)
     local escaped_token = M.escape_latex_chars(token)
-    local attributes = hl_group_attr_map[hl_group]
+    local attributes = hl_group and hl_group_map[hl_group]
 
-    if not hl_group then
+    if not attributes then
         return "\\ttfamily{" .. escaped_token .. "}"
     end
 
-    local tex_output = "\\ttfamily{"..escaped_token .."}"
+    local tex_output = "\\ttfamily{" .. escaped_token .. "}"
 
-    if attributes.attr then
-        for _, attr in ipairs(attributes.attr) do
-            if attr == "bold" then
-                tex_output = "\\textbf{" .. tex_output .. "}"
-            elseif attr == "italic" then
-                tex_output = "\\textit{" .. tex_output .. "}"
-            elseif attr == "underline" then
-                tex_output = "\\underbar{" .. tex_output .. "}"
-            end
-        end
+    if attributes.bold then
+        tex_output = "\\textbf{" .. tex_output .. "}"
     end
+    if attributes.italic then
+        tex_output = "\\textit{" .. tex_output .. "}"
+    end
+    if attributes.underline then
+        tex_output = "\\underbar{" .. tex_output .. "}"
+    end
+    -- You can easily add more attributes here, like 'undercurl', 'strikethrough', etc.
 
     if attributes.fg then
-        tex_output = string.format("\\textcolor[HTML]{%s}{%s}", attributes.fg, tex_output)
+        local hex_color = string.format("%06x", attributes.fg)
+        tex_output = string.format("\\textcolor[HTML]{%s}{%s}", hex_color, tex_output)
     end
 
     return tex_output
-    -- return tex_output .. escaped_token .. "}"
 end
 
 --use inspect_pos ("Inspect") to figure out what highlight group link we should use; process a given line.
@@ -177,25 +156,19 @@ M.generateLineLatex = function(line, line_num, buf_num, hl_group_attr_map)
 end
 
 M.compareAttributes = function(attr1, attr2)
-    if attr1 == nil and attr2 == nil then return true end --both nil
-    if attr1 == nil or attr2 == nil then return false end --one is nil, the other isn't
-    if attr1.fg ~= attr2.fg or attr1.bg ~= attr2.bg then
-        return false
-    end
+    -- If both are nil (e.g., for unhighlighted text), they are the same.
+    if not attr1 and not attr2 then return true end
+    -- If one is nil and the other is not, they are different.
+    if not attr1 or not attr2 then return false end
 
-    -- Compare 'attr' tables (bold, italic, underline)
-    if attr1.attr == nil and attr2.attr == nil then return true end
-    if attr1.attr == nil or attr2.attr == nil then return false end
-    if #attr1.attr ~= #attr2.attr then
-        return false
-    end
-    table.sort(attr1.attr)  -- Sort to ensure order doesn't matter
-    table.sort(attr2.attr)
-    for i = 1, #attr1.attr do
-        if attr1.attr[i] ~= attr2.attr[i] then
-            return false
-        end
-    end
+    -- Compare colors (integers or nil).
+    if attr1.fg ~= attr2.fg then return false end
+    if attr1.bg ~= attr2.bg then return false end
+
+    -- Compare boolean attributes 
+    if (attr1.bold or false) ~= (attr2.bold or false) then return false end
+    if (attr1.italic or false) ~= (attr2.italic or false) then return false end
+    if (attr1.underline or false) ~= (attr2.underline or false) then return false end
 
     return true
 end
@@ -205,9 +178,12 @@ M.generateLatexCodeblock = function(startLine,endLine)
     local buf_num = vim.api.nvim_get_current_buf()
     local lines = vim.api.nvim_buf_get_lines(buf_num, startLine - 1, endLine, false)
 
-    local hl_group_color_map = M.get_highlight_group_colors()
-    local bg_color = M.get_background_color()
-    local r, g, b = M.hex_to_rgb(bg_color)
+    local hl_map = M.get_highlight_group_colors()
+
+    local normal_group = hl_map.Normal or {}
+    local bg_color_int = normal_group.bg or 0xFFFFFF -- Default to white
+
+    local r, g, b = M.integer_to_rgb(bg_color_int)
 
     local tcolorbox_opts_str = "\ncolback={rgb,255:red," .. r * 255 .. ";green," .. g * 255 .. ";blue," .. b * 255 .. "},\n"
     for k, v in pairs(M.config.tcolorbox_opts) do
@@ -231,9 +207,9 @@ M.generateLatexCodeblock = function(startLine,endLine)
 
     for line_num = startLine, endLine do
         if line_num == endLine then
-            latex_output = latex_output .. M.generateLineLatex(lines[line_num - startLine + 1], line_num, buf_num, hl_group_color_map):gsub("\\newline\n$","")
+            latex_output = latex_output .. M.generateLineLatex(lines[line_num - startLine + 1], line_num, buf_num, hl_map):gsub("\\newline\n$","")
         else
-            latex_output = latex_output .. M.generateLineLatex(lines[line_num - startLine + 1], line_num, buf_num, hl_group_color_map)
+            latex_output = latex_output .. M.generateLineLatex(lines[line_num - startLine + 1], line_num, buf_num, hl_map)
         end
     end
 
@@ -265,7 +241,7 @@ M.generateAllMotley = function(opts)
     end
 
     local originalScheme = vim.g.colors_name
-    vim.notify("Original colorscheme: " .. originalScheme)
+    -- vim.notify("Original colorscheme: " .. originalScheme)
 
     local marker_pattern = "^" .. vim.pesc(commentString) .. "%s+(.*)%.tex$"
 
@@ -306,7 +282,7 @@ M.generateAllMotley = function(opts)
     end
 
     for _, scheme in ipairs(colorSchemes) do
-        vim.notify("Applying colorscheme: " .. scheme)
+        -- vim.notify("Applying colorscheme: " .. scheme)
         vim.cmd("colorscheme " .. scheme)
         vim.cmd("redraw")
         vim.wait(50)
@@ -321,7 +297,7 @@ M.generateAllMotley = function(opts)
         end
     end
 
-    vim.notify("Automation complete. Restoring original colorscheme.")
+    -- vim.notify("Automation complete. Restoring original colorscheme.")
     vim.cmd("colorscheme " .. originalScheme)
     vim.cmd("redraw")
 end
