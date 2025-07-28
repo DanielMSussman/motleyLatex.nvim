@@ -5,16 +5,13 @@ M.config = {}
 
 -- Get the background color from the 'Normal' highlight group
 M.get_background_color = function()
-    local bg_color = "FFFFFF" -- Default to white
-    local hl_info = vim.fn.execute("highlight Normal")
-    for line in hl_info:gmatch("[^\r\n]+") do
-        local color_match = line:match("guibg=#(%x%x%x%x%x%x)")
-        if color_match then
-            bg_color = color_match
-            break
-        end
+    local hl_info = vim.api.nvim_get_hl_by_name("Normal", true)
+
+    if hl_info and hl_info.background then
+        return string.format("%06x", hl_info.background)
     end
-    return bg_color
+
+    return "FFFFFF"
 end
 
 -- tcolorbox colback needs rgb (?), so here's a helper function
@@ -60,15 +57,25 @@ end
 -- A bunch of TeX characters need to be escaped
 M.escape_latex_chars = function(str)
     local replacements = {
-        ["\\"] = "\\textbackslash ",
-        ["%"] = "\\%",
-        ["^"] = "\\textasciicircum",
-        ["~"] = "\\textasciitilde",
+        ['\\'] = '\\textbackslash{}',
+        ['%'] = '\\%',
+        ['$'] = '\\$',
+        ['#'] = '\\#',
+        ['&'] = '\\&',
+        ['_'] = '\\_',
+        ['{'] = '\\{',
+        ['}'] = '\\}',
+        ['^'] = '\\textasciicircum{}',
+        ['~'] = '\\textasciitilde{}'
     }
-    str = string.gsub(str, "[\\^~]", function(c) return replacements[c] or c end)
-    str = string.gsub(str, "[#$%&_{}]", function(c) return "\\" .. c end)
-    return str
+
+    return string.gsub(str, "[\\%%$#&_{}%^~]",
+        function(c)
+            return replacements[c]
+        end
+    )
 end
+
 
 -- generate the \textcolor[HTML]{hexCode} stuff to get a connected block of tokens with the given color
 M.generateTokenLatex = function(token, hl_group, hl_group_attr_map)
