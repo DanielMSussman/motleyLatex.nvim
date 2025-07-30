@@ -243,7 +243,7 @@ M.generateAllMotley = function(opts)
     local originalScheme = vim.g.colors_name
     -- vim.notify("Original colorscheme: " .. originalScheme)
 
-    local marker_pattern = "^" .. vim.pesc(commentString) .. "%s+(.*)%.tex$"
+    local marker_pattern = "^" .. vim.pesc(commentString) .. "%s+(.*)%.tex%s*$"
 
     local blocks = {}
     local bufferLines = vim.api.nvim_buf_get_lines(0, 0, -1, false)
