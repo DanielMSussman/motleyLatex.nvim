@@ -186,7 +186,14 @@ M.generateLatexCodeblock = function(startLine,endLine)
     local r, g, b = M.integer_to_rgb(bg_color_int)
 
     local tcolorbox_opts_str = "\ncolback={rgb,255:red," .. r * 255 .. ";green," .. g * 255 .. ";blue," .. b * 255 .. "},\n"
-    for k, v in pairs(M.config.tcolorbox_opts) do
+    local keys = {}
+    for k in pairs(M.config.tcolorbox_opts) do
+        table.insert(keys,k)
+    end
+    table.sort(keys)
+
+    for _,k in ipairs(keys) do
+        local v = M.config.tcolorbox_opts[k]
         if type(v) == "boolean" then
             if v then -- Only add the option if it's true
                 tcolorbox_opts_str = tcolorbox_opts_str .. k .. ","
