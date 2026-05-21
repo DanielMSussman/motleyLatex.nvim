@@ -49,6 +49,12 @@ M.setup = function(opts)
             -- Generate the LaTeX code
             local latex_code = module.generateLatexCodeblock(startLine, endLine)
 
+            -- Ensure the parent directory exists
+            local dir = vim.fn.fnamemodify(outputFile, ":h")
+            if vim.fn.isdirectory(dir) == 0 then
+                vim.fn.mkdir(dir, "p")
+            end
+
             -- Write the LaTeX code to the output file
             local file = io.open(outputFile, "w")
             if file then
@@ -78,6 +84,15 @@ M.setup = function(opts)
         end,
         { nargs = "*", complete = "color",
             desc = "Generate motleyLatex files for every block in the current file that starts with a given comment string.", }
+    )
+
+    vim.api.nvim_create_user_command('GenerateDelimitedMotleyBlocks',
+        function(opts)
+            local module = require("motleyLatex.module")
+            module.generateDelimitedMotleyBlocks(opts)
+        end,
+        { nargs = "*", complete = "color",
+            desc = "Generate motleyLatex files for every block in the current file enclosed by #@@ and #@@end.", }
     )
 end
 

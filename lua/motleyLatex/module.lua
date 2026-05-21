@@ -309,4 +309,66 @@ M.generateAllMotley = function(opts)
     vim.cmd("redraw")
 end
 
+M.generateDelimitedMotleyBlocks = function(opts)
+    local args = vim.split(opts.args, "%s+")
+    local colorSchemes = nil
+    if #args == 1 and args[1] == "" then
+        colorSchemes = { "kanagawa-lotus" }
+    else
+        colorSchemes = args
+    end
+
+    local originalScheme = vim.g.colors_name
+
+    local blocks = {}
+    local bufferLines = vim.api.nvim_buf_get_lines(0, 0, -1, false)
+    local currentBlock = nil
+
+    local start_pattern = "^%s*#@@%s+(.*)%.tex%s*$"
+    local end_pattern = "^%s*#@@end%s*$"
+
+    for i, line in ipairs(bufferLines) do
+        local filename = line:match(start_pattern)
+        if filename then
+            currentBlock = {
+                filename = filename,
+                startLine = i + 1,
+            }
+        elseif line:match(end_pattern) then
+            if currentBlock then
+                local endLine = i - 1
+                while endLine >= currentBlock.startLine and vim.trim(bufferLines[endLine]) == "" do
+                    endLine = endLine - 1
+                end
+                if endLine >= currentBlock.startLine then
+                    currentBlock.endLine = endLine
+                    table.insert(blocks, currentBlock)
+                end
+                currentBlock = nil
+            end
+        end
+    end
+
+    if #blocks == 0 then
+        vim.notify("No blocks matching '#@@ filename.tex' and '#@@end' format found.")
+        return
+    end
+
+    for _, scheme in ipairs(colorSchemes) do
+        vim.cmd("colorscheme " .. scheme)
+        vim.cmd("redraw")
+        vim.wait(50)
+
+        for _, block in ipairs(blocks) do
+            vim.notify("Generating " .. block.filename .. ".tex ...")
+            local cmd = string.format(":%d,%d MotleyLatex %s", block.startLine, block.endLine, block.filename)
+            print(cmd)
+            vim.cmd(cmd)
+        end
+    end
+
+    vim.cmd("colorscheme " .. originalScheme)
+    vim.cmd("redraw")
+end
+
 return M
