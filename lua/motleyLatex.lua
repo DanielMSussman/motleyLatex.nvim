@@ -30,10 +30,11 @@ M.setup = function(opts)
             local filenameArg = args[1]
             local titleArg = args[2]
 
-            -- Determine output file name
+            -- Determine output file name, possibly using an environment var as root
             local outputFile
             if filenameArg and filenameArg ~= "" then
-                outputFile = filenameArg .. '.tex'
+                local base_dir = vim.env.MOTLEY_ROOT or vim.fn.getcwd()
+                outputFile = base_dir .. "/" .. filenameArg .. '.tex'
             else
                 outputFile = vim.fn.expand('%:p:r') .. '.tex'
             end
